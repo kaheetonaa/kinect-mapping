@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pyvista as pv
 from PIL import Image
 import cv2
-
+import time
 DepthCamParams = {
         "fx": 5.9421434211923247e+02,
         "fy": 5.9104053696870778e+02,
@@ -79,29 +79,32 @@ def get_registred_depth_rgb(depth,rgb):
 
         return points, rgb[y, x]
 
-# Capture a depth image
-depth = freenect.sync_get_depth()[0]
-rgb = freenect.sync_get_video()[0]
-depth_norm=(depth-depth.min())/(depth.max()-depth.min())
-depth_norm=depth_norm*255
+def capture():
+    # Capture a depth image
+    depth,timestamp = freenect.sync_get_depth()
+    rgb = freenect.sync_get_video()[0]
+    depth_norm=(depth-depth.min())/(depth.max()-depth.min())
+    depth_norm=depth_norm*255
+    # Capture an RGB image
+    points,color=get_registred_depth_rgb(depth,rgb)
+    img_depth = Image.fromarray(depth_norm).convert('RGB')
+    img_depth.save(str(timestamp)+'-depth.jpg')
+    img_rgb = Image.fromarray(rgb)
+    img_rgb.save(str(timestamp)+'-rgb.jpg')
+    print(f"RGB shape: {rgb.shape}")
+    #reconstruction
+    color=np.reshape(color,(-1,3))
+    points=np.reshape(points,(-1,3))
+    pc=pv.PolyData(points)
+    pc.point_data['color']=color
+    pc.save(str(timestamp)+'-.ply',texture='color')
+    print('capture !')
 
-
-# Capture an RGB image
-points,color=get_registred_depth_rgb(depth,rgb)
-img_depth = Image.fromarray(depth_norm).convert('RGB')
-img_depth.save('00-depth.jpg')
-img_rgb = Image.fromarray(rgb)
-img_rgb.save('01-rgb.jpg')
-print(f"RGB shape: {rgb.shape}")
-
-#reconstruction
-
-color=np.reshape(color,(-1,3))
-points=np.reshape(points,(-1,3))
-
-pc=pv.PolyData(points)
-pc.point_data['color']=color
-plotter = pv.Plotter()
-plotter.add_points(pc,scalars='color',rgb=True)
-plotter.show()
-pc.save('pc.ply',texture='color')
+capture()
+time.sleep(1)
+capture()
+time.sleep(1)
+capture()
+#plotter = pv.Plotter()
+#plotter.add_points(pc,scalars='color',rgb=True)
+#plotter.show()
